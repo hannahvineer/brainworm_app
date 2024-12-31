@@ -14,7 +14,7 @@ weatherInputUI <- function(id) {
     radioButtons(
       ns("data_source"), 
       "Choose Data Source", 
-      choices = c("Use Visual Crossing API" = "api", "Upload CSV File" = "csv"), 
+      choices = c("Use Visual Crossing API" = "api", "Upload CSV File" = "csv", "Demo Data" = "demo"), 
       selected = "api"
     ),
     conditionalPanel(

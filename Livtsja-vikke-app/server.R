@@ -20,9 +20,53 @@ weatherInputServer <- function(id) {
     
     # Process data based on user choice
     observeEvent(input$data_source, {
+      
+      
       if (input$data_source == "api") {
         # Clear existing data if switching to API
         weather_data(NULL)
+      }
+      
+      if (input$data_source == "api") {
+        updateTextAreaInput(session, "coordinates", value = "70.3706, 31.1107, Varanger\n63.4305, 10.3951, Trøndelag")
+      }
+      
+      if (input$data_source == "demo") {
+        # Path to the default data file
+        demo_file_path <- "www/default_data.csv"  # Ensure this file exists in the app directory
+        
+        # Read and process the default CSV file
+        demo_data <- read.csv(demo_file_path)
+        
+        # Validate required columns
+        required_cols <- c("lat", "lon", "ID", "date", "mean_temp")
+        if (!all(required_cols %in% names(demo_data))) {
+          showNotification("Default data file is missing required columns.", type = "error")
+          return()
+        }
+        
+        # Process the demo data
+        demo_data <- demo_data %>%
+          mutate(
+            date = as.Date(date),
+            lat = as.numeric(lat),
+            lon = as.numeric(lon),
+            mean_temp = as.numeric(mean_temp)
+          ) %>%
+          calculate_degree_days() %>%
+          calculate_thermal_suitability_index()
+        
+        # Debug processed data
+        print("Loaded demo data:")
+        print(head(demo_data))
+        
+        # Store demo data in reactive value
+        weather_data(demo_data)
+        
+        # Notify user of success
+        showNotification("Demo data loaded successfully.", type = "message")
+      } else if (input$data_source == "api" || input$data_source == "csv") {
+        weather_data(NULL)  # Clear data when switching to API or CSV
       }
     })
     
