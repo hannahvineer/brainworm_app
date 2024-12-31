@@ -7,6 +7,7 @@ library(dplyr)
 library(ggplot2)
 library(leaflet)
 library(DT)
+library(plotly)
 
 source("helpers.R") # Optional: use this if you move utility functions to a separate helpers.R file
 
@@ -165,46 +166,46 @@ weatherPlotServer <- function(id, data) {
       req(data())  # Ensure `data()` is valid
       print("Refreshing visualizations with updated data...")  # Debugging
       
-    output$map <- renderLeaflet({
-      req(data())
-      coords <- data() %>%
-        group_by(lat, lon, ID) %>%
-        summarise(final_tsi = last(thermal_suitability_index), .groups = 'drop')
-      coords <- coords %>%
-        mutate(color = case_when(
-          final_tsi < 0.5 ~ "blue",
-          final_tsi < 1 ~ "yellow",
-          final_tsi < 2 ~ "orange",
-          TRUE ~ "red"
-        ))
-      
-      pal <- colorFactor(
-        palette = c("blue", "yellow", "orange", "red"),
-        domain = c("Low (<0.5)", "Moderate (0.5-1)", "High (1-2)", "Very high (>=2)")
-      )
-      leaflet() %>%
-        addTiles() %>%
-        addCircleMarkers(
-          lng = coords$lon,
-          lat = coords$lat,
-          popup = paste("ID:", coords$ID, "TSI:", round(coords$final_tsi, 2)),
-          radius = 5,
-          color = coords$color,
-          fill = TRUE
-        ) %>%
-        addLegend(
-          position = "bottomright",
-          pal = pal,
-          values = c("Low (<0.5)", "Moderate (0.5-1)", "High (1-2)", "Very high (>=2)"),
-          title = "Thermal Suitability Index (TSI)",
-          opacity = 1
+      output$map <- renderLeaflet({
+        req(data())
+        coords <- data() %>%
+          group_by(lat, lon, ID) %>%
+          summarise(final_tsi = last(thermal_suitability_index), .groups = 'drop')
+        coords <- coords %>%
+          mutate(color = case_when(
+            final_tsi < 0.5 ~ "blue",
+            final_tsi < 1 ~ "yellow",
+            final_tsi < 2 ~ "orange",
+            TRUE ~ "red"
+          ))
+        
+        pal <- colorFactor(
+          palette = c("blue", "yellow", "orange", "red"),
+          domain = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)")
         )
-    })
-    
-    output$plot_temp <- renderPlot({
+        leaflet() %>%
+          addTiles() %>%
+          addCircleMarkers(
+            lng = coords$lon,
+            lat = coords$lat,
+            popup = paste("ID:", coords$ID, "TSI:", round(coords$final_tsi, 2)),
+            radius = 5,
+            color = coords$color,
+            fill = TRUE
+          ) %>%
+          addLegend(
+            position = "bottomright",
+            pal = pal,
+            values = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)"),
+            title = "Thermal Suitability Index (TSI)",
+            opacity = 1
+          )
+      })
+      
+    output$plot_temp <- renderPlotly({
       req(data())
-      ggplot(data(), aes(x = as.Date(date), y = mean_temp, color = interaction(ID))) +
-        geom_line(size = 1.5) +
+      p <- ggplot(data(), aes(x = as.Date(date), y = mean_temp, color = interaction(ID))) +
+        geom_line(size = 0.8) +
         geom_hline(yintercept = 8, linetype = "dashed", color = "grey") +  # Horizontal line at 8°C
         geom_hline(yintercept = 21, linetype = "dashed", color = "grey") + # Horizontal line at 21°C
         labs(
@@ -216,28 +217,30 @@ weatherPlotServer <- function(id, data) {
         ) +
         theme_minimal() +
         theme(plot.caption = element_text(size = 12, face = "italic"))
+      ggplotly(p)
     })
     
-    output$plot_degree_days <- renderPlot({
+    output$plot_degree_days <- renderPlotly({
       req(data())
-      ggplot(data(), aes(x = as.Date(date), y = degree_days, color = interaction(ID))) +
-        geom_line(size = 1.5) +
+      p <- ggplot(data(), aes(x = as.Date(date), y = cumulative_degree_days, color = interaction(ID))) +
+        geom_line(size = 0.8) +
         geom_hline(yintercept = 245, linetype = "dashed", color = "grey") +  # Horizontal line at 245 degree days
         labs(
           title = " ", 
           x = "Date", 
-          y = "Degree Days", 
+          y = "Cumulative Degree Days", 
           color = "ID",
           caption = "Figure 2. The estimated degree-days accumulated during the requested date range, based on the daily mean temperature data. Dashed line indicates the cumulative threshold of 245 degree days required to complete development from the first larval stage to infective larvae within the average gastropod host."
         ) +
         theme_minimal() +
         theme(plot.caption = element_text(size = 12, face = "italic"))
+      ggplotly(p)
     })
     
-    output$plot_tsi <- renderPlot({
+    output$plot_tsi <- renderPlotly({
       req(data())
-      ggplot(data(), aes(x = as.Date(date), y = thermal_suitability_index, color = interaction(ID))) +
-        geom_line(size = 1.5) +
+      p <- ggplot(data(), aes(x = as.Date(date), y = thermal_suitability_index, color = interaction(ID))) +
+        geom_line(size = 0.8) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +  # Horizontal line at TSI = 1
         labs(
           title = " ", 
@@ -248,6 +251,7 @@ weatherPlotServer <- function(id, data) {
         ) +
         theme_minimal() +
         theme(plot.caption = element_text(size = 12, face = "italic"))
+      ggplotly(p)
     })
   })
   })

@@ -41,9 +41,9 @@ weatherPlotUI <- function(id) {
   ns <- NS(id)
   tagList(
     leafletOutput(ns("map"), height = "400px"),
-    plotOutput(ns("plot_temp")),
-    plotOutput(ns("plot_degree_days")),
-    plotOutput(ns("plot_tsi"))
+    plotlyOutput(ns("plot_temp")),
+    plotlyOutput(ns("plot_degree_days")),
+    plotlyOutput(ns("plot_tsi"))
   )
 }
 
