@@ -15,21 +15,24 @@ weatherInputServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # Reactive value to store fetched data
+    # Reactive value to store weather data
     weather_data <- reactiveVal()
     
-    # Observe API key and update global variable
-    observeEvent(input$api_key, {
-      req(input$api_key)
-      assign("API_KEY", input$api_key, envir = .GlobalEnv)
+    # Process data based on user choice
+    observeEvent(input$data_source, {
+      if (input$data_source == "api") {
+        # Clear existing data if switching to API
+        weather_data(NULL)
+      }
     })
     
-    # Fetch data when button is clicked
+    # Fetch data using API
     observeEvent(input$fetch, {
-      req(input$date_range, input$coordinates, API_KEY)
+      req(input$date_range, input$coordinates, input$api_key)
       start_date <- as.character(input$date_range[1])
       end_date <- as.character(input$date_range[2])
       coordinates <- strsplit(input$coordinates, "\n")[[1]]
+      
       all_data <- do.call(rbind, lapply(coordinates, function(coord) {
         lat_lon_id <- strsplit(coord, ",")[[1]]
         lat <- as.numeric(lat_lon_id[1])
@@ -37,7 +40,7 @@ weatherInputServer <- function(id) {
         id <- trimws(lat_lon_id[3])
         if (!is.na(lat) && !is.na(lon) && !is.na(id)) {
           tryCatch(
-            fetch_weather_data(lat, lon, start_date, end_date, API_KEY) %>%
+            fetch_weather_data(lat, lon, start_date, end_date, input$api_key) %>%
               mutate(ID = id),
             error = function(e) {
               showNotification(sprintf("Failed to fetch data for %s", coord), type = "error")
@@ -50,6 +53,47 @@ weatherInputServer <- function(id) {
         }
       }))
       weather_data(calculate_thermal_suitability_index(calculate_degree_days(all_data)))
+      print(head(weather_data())) # for debugging
+    })
+    
+    # Process uploaded CSV file
+    observeEvent(input$csv_file, {
+      req(input$csv_file)
+      file_data <- read.csv(input$csv_file$datapath)
+      
+      # Debug raw data file
+      print("Raw uploaded data:")
+      print(head(file_data))
+      
+      # Validate required columns
+      required_cols <- c("lat", "lon", "ID", "date", "mean_temp")
+      if (!all(required_cols %in% names(file_data))) {
+        showNotification("Uploaded CSV file must contain columns: lat, lon, ID, date, mean_temp", type = "error")
+        return()
+      }
+      
+      # Process CSV data
+      file_data <- file_data %>%
+        mutate(
+          date = as.Date(date),
+          lat = as.numeric(lat),
+          lon = as.numeric(lon),
+          mean_temp = as.numeric(mean_temp)
+          ) %>%  # Ensure dates are properly formatted
+        calculate_degree_days() %>%       # Calculate degree days
+        calculate_thermal_suitability_index()  # Calculate TSI
+      
+      # Debug processed data
+      print("Processed weather data:")
+      print(head(file_data))
+      
+      weather_data(file_data)  # Store processed data
+      print(head(weather_data())) # for debugging
+
+    #   # Notify user of success
+    #   start_date <- min(file_data$date)
+    #   end_date <- max(file_data$date)
+    #   showNotification(sprintf("Data uploaded successfully. Date range: %s to %s", start_date, end_date), type = "message")
     })
     
     # Provide CSV download
@@ -62,14 +106,21 @@ weatherInputServer <- function(id) {
       }
     )
     
-    # Return weather data
+    # Return the processed data
     return(weather_data)
   })
 }
 
+
 # Module server for plotting
 weatherPlotServer <- function(id, data) {
   moduleServer(id, function(input, output, session) {
+
+    # Observer to refresh visualizations when `data()` changes
+    observe({
+      req(data())  # Ensure `data()` is valid
+      print("Refreshing visualizations with updated data...")  # Debugging
+      
     output$map <- renderLeaflet({
       req(data())
       coords <- data() %>%
@@ -155,12 +206,12 @@ weatherPlotServer <- function(id, data) {
         theme(plot.caption = element_text(size = 12, face = "italic"))
     })
   })
+  })
 }
 
 server <- function(input, output, session) {
   weather_data <- weatherInputServer("weatherInput")
   weatherPlotServer("weatherPlot", weather_data)
-  
   # Display data table
   output$table <- renderDataTable({
     req(weather_data())

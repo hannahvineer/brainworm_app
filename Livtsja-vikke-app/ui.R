@@ -11,12 +11,27 @@ source("helpers.R") # Optional: use this if you move utility functions to a sepa
 weatherInputUI <- function(id) {
   ns <- NS(id)
   tagList(
-    textInput(ns("api_key"), "Enter API Key", ""),
-    dateRangeInput(ns("date_range"), "Select Date Range",
-                   start = Sys.Date() - 180, end = Sys.Date()),
-    textAreaInput(ns("coordinates"), "Enter Latitude, Longitude, and ID (one per line, format: 'lat, lon, ID')", 
-                  "70.3706, 31.1107, Varanger\n63.4305, 10.3951, Trøndelag\n69.9662, 23.2412, Alta-Fjord\n70.0525, 25.0050, Porsanger\n61.5055, 8.5643, Grindaheim"),
-    actionButton(ns("fetch"), "Fetch Weather Data"),
+    radioButtons(
+      ns("data_source"), 
+      "Choose Data Source", 
+      choices = c("Use Visual Crossing API" = "api", "Upload CSV File" = "csv"), 
+      selected = "api"
+    ),
+    conditionalPanel(
+      condition = "input.data_source == 'api'",
+      ns = ns,
+      textInput(ns("api_key"), "Enter API Key", ""),
+      dateRangeInput(ns("date_range"), "Select Date Range",
+                     start = Sys.Date() - 180, end = Sys.Date()),
+      textAreaInput(ns("coordinates"), "Enter Latitude, Longitude, and ID (one per line, format: 'lat, lon, ID')", 
+                    "70.3706, 31.1107, Varanger\n63.4305, 10.3951, Trøndelag"),
+      actionButton(ns("fetch"), "Fetch Weather Data")
+    ),
+    conditionalPanel(
+      condition = "input.data_source == 'csv'",
+      ns = ns,
+      fileInput(ns("csv_file"), "Upload CSV File", accept = ".csv")
+    ),
     downloadButton(ns("download"), "Download CSV")
   )
 }
@@ -64,12 +79,24 @@ ui <- fluidPage(theme = shinytheme("cerulean"),
       div(
         HTML("
         <button class='btn btn-link' data-toggle='collapse' data-target='#runInfo' style='margin-top: 15px;'>
-          How to run the app (click to expand)
+          How to run the app - using Visual Crossing weather API (click to expand)
         </button>
         <div id='runInfo' class='collapse'>
           <p style='font-size: 14px; font-style: italic; color: #555;'>
             Based on your understanding of brainworm epidemiology and larval shedding in your region, choose an appropriate start date for the model predictions e.g. you may choose autumn to predict the timing of potential transmission of larvae shed by infected reindeer at this time of year. You will need to sign up for a free account at VisualCrossing.com and copy your API Key (can be found in the account section) to access the weather data. Once you have your API key, please input your requested locations for model predictions. We have added some default locations as examples and for users wishing to explore the app quickly. Bear in mind that the number of free records available through VisualCrossing is limited to 1000 per day, and therefore predicting TSI for a large number of locations over extended poeriods may not be possible with a free account.
            </p>
+        </div>
+      ")
+      ),
+      div(
+        HTML("
+        <button class='btn btn-link' data-toggle='collapse' data-target='#runInfo' style='margin-top: 15px;'>
+          How to run the app - using your own weather data (click to expand)
+        </button>
+        <div id='runInfo' class='collapse'>
+          <p style='font-size: 14px; font-style: italic; color: #555;'>
+            If you already have your own weather data, you can upload this as a .csv file. The file must be formatted as follows: columns with the headers 'date', 'lat', 'lon', 'ID', 'mean_temp'. 'date' must be formatted as 'YYYY-MM-DD', for example, 1st of October 2024 would be '2024-10-01'. 'lat' and 'lon' are the latitudes and longitudes for the locations in your dataset, in *decimal degrees*. 'ID' is the name you give each location in your dataset, and will be used to label the visualisations produced by the app. Please keep these simple to avoid errors running the app. If you have multiple locations in your dataset, the data for each location should cover the same date range. *Troubleshooting* If your data upload fails or the temperature data look unusual/unexpected, you may have issues with special characters or incorrect formatting of dates.
+            </p>
         </div>
       ")
       ),
