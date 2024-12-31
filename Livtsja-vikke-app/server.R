@@ -157,110 +157,203 @@ weatherInputServer <- function(id) {
 }
 
 
-# Module server for plotting
-weatherPlotServer <- function(id, data) {
-  moduleServer(id, function(input, output, session) {
-
-    # Observer to refresh visualizations when `data()` changes
-    observe({
-      req(data())  # Ensure `data()` is valid
-      print("Refreshing visualizations with updated data...")  # Debugging
-      
-      output$map <- renderLeaflet({
-        req(data())
-        coords <- data() %>%
-          group_by(lat, lon, ID) %>%
-          summarise(final_tsi = last(thermal_suitability_index), .groups = 'drop')
-        coords <- coords %>%
-          mutate(color = case_when(
-            final_tsi < 0.5 ~ "blue",
-            final_tsi < 1 ~ "yellow",
-            final_tsi < 2 ~ "orange",
-            TRUE ~ "red"
-          ))
-        
-        pal <- colorFactor(
-          palette = c("blue", "yellow", "orange", "red"),
-          domain = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)")
-        )
-        leaflet() %>%
-          addTiles() %>%
-          addCircleMarkers(
-            lng = coords$lon,
-            lat = coords$lat,
-            popup = paste("ID:", coords$ID, "TSI:", round(coords$final_tsi, 2)),
-            radius = 5,
-            color = coords$color,
-            fill = TRUE
-          ) %>%
-          addLegend(
-            position = "bottomright",
-            pal = pal,
-            values = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)"),
-            title = "Thermal Suitability Index (TSI)",
-            opacity = 1
-          )
-      })
-      
-    output$plot_temp <- renderPlotly({
-      req(data())
-      p <- ggplot(data(), aes(x = as.Date(date), y = mean_temp, color = interaction(ID))) +
-        geom_line(size = 0.8) +
-        geom_hline(yintercept = 8, linetype = "dashed", color = "grey") +  # Horizontal line at 8°C
-        geom_hline(yintercept = 21, linetype = "dashed", color = "grey") + # Horizontal line at 21°C
-        labs(
-          title = "", 
-          x = "Date", 
-          y = "Mean Temperature (°C)", 
-          color = "ID",
-          caption = "Figure 1. Mean daily temperature for the requested dates and locations. Dashed lines indicate thresholds lower and upper larval development thresholds of 8°C and 21°C. Each requested location is represented as a separate line."
-        ) +
-        theme_minimal() +
-        theme(plot.caption = element_text(size = 12, face = "italic"))
-      ggplotly(p)
-    })
-    
-    output$plot_degree_days <- renderPlotly({
-      req(data())
-      p <- ggplot(data(), aes(x = as.Date(date), y = cumulative_degree_days, color = interaction(ID))) +
-        geom_line(size = 0.8) +
-        geom_hline(yintercept = 245, linetype = "dashed", color = "grey") +  # Horizontal line at 245 degree days
-        labs(
-          title = " ", 
-          x = "Date", 
-          y = "Cumulative Degree Days", 
-          color = "ID",
-          caption = "Figure 2. The estimated degree-days accumulated during the requested date range, based on the daily mean temperature data. Dashed line indicates the cumulative threshold of 245 degree days required to complete development from the first larval stage to infective larvae within the average gastropod host."
-        ) +
-        theme_minimal() +
-        theme(plot.caption = element_text(size = 12, face = "italic"))
-      ggplotly(p)
-    })
-    
-    output$plot_tsi <- renderPlotly({
-      req(data())
-      p <- ggplot(data(), aes(x = as.Date(date), y = thermal_suitability_index, color = interaction(ID))) +
-        geom_line(size = 0.8) +
-        geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +  # Horizontal line at TSI = 1
-        labs(
-          title = " ", 
-          x = "Date", 
-          y = "Thermal Suitability Index", 
-          color = "ID",
-          caption = "Figure 3. The estimated Thermal Suitability Index (TSI). Dashed line indicates TSI threshold of 1, above which development from the first larval stage to the infective stage within the gastropod host is theoretically complete and transmission is possible. Please note this is based on the requested date range and does not account for potential development completed prior to the range of these data."
-        ) +
-        theme_minimal() +
-        theme(plot.caption = element_text(size = 12, face = "italic"))
-      ggplotly(p)
-    })
-  })
-  })
-}
+# # Module server for plotting
+# weatherPlotServer <- function(id, data) {
+#   moduleServer(id, function(input, output, session) {
+# 
+#     # Observer to refresh visualizations when `data()` changes
+#     observe({
+#       req(data())  # Ensure `data()` is valid
+#       print("Refreshing visualizations with updated data...")  # Debugging
+#       
+#       output$map <- renderLeaflet({
+#         req(data())
+#         coords <- data() %>%
+#           group_by(lat, lon, ID) %>%
+#           summarise(final_tsi = last(thermal_suitability_index), .groups = 'drop')
+#         coords <- coords %>%
+#           mutate(color = case_when(
+#             final_tsi < 0.5 ~ "blue",
+#             final_tsi < 1 ~ "yellow",
+#             final_tsi < 2 ~ "orange",
+#             TRUE ~ "red"
+#           ))
+#         
+#         pal <- colorFactor(
+#           palette = c("blue", "yellow", "orange", "red"),
+#           domain = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)")
+#         )
+#         leaflet() %>%
+#           addTiles() %>%
+#           addCircleMarkers(
+#             lng = coords$lon,
+#             lat = coords$lat,
+#             popup = paste("ID:", coords$ID, "TSI:", round(coords$final_tsi, 2)),
+#             radius = 5,
+#             color = coords$color,
+#             fill = TRUE
+#           ) %>%
+#           addLegend(
+#             position = "bottomright",
+#             pal = pal,
+#             values = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)"),
+#             title = "Thermal Suitability Index (TSI)",
+#             opacity = 1
+#           )
+#       })
+#       
+#     output$plot_temp <- renderPlotly({
+#       req(data())
+#       p <- ggplot(data(), aes(x = as.Date(date), y = mean_temp, color = interaction(ID))) +
+#         geom_line(size = 0.8) +
+#         geom_hline(yintercept = 8, linetype = "dashed", color = "grey") +  # Horizontal line at 8°C
+#         geom_hline(yintercept = 21, linetype = "dashed", color = "grey") + # Horizontal line at 21°C
+#         labs(
+#           title = "", 
+#           x = "Date", 
+#           y = "Mean Temperature (°C)", 
+#           color = "ID",
+#           caption = "Figure 1. Mean daily temperature for the requested dates and locations. Dashed lines indicate thresholds lower and upper larval development thresholds of 8°C and 21°C. Each requested location is represented as a separate line."
+#         ) +
+#         theme_minimal() +
+#         theme(plot.caption = element_text(size = 12, face = "italic"))
+#       ggplotly(p)
+#     })
+#     
+#     output$plot_degree_days <- renderPlotly({
+#       req(data())
+#       p <- ggplot(data(), aes(x = as.Date(date), y = cumulative_degree_days, color = interaction(ID))) +
+#         geom_line(size = 0.8) +
+#         geom_hline(yintercept = 245, linetype = "dashed", color = "grey") +  # Horizontal line at 245 degree days
+#         labs(
+#           title = " ", 
+#           x = "Date", 
+#           y = "Cumulative Degree Days", 
+#           color = "ID",
+#           caption = "Figure 2. The estimated degree-days accumulated during the requested date range, based on the daily mean temperature data. Dashed line indicates the cumulative threshold of 245 degree days required to complete development from the first larval stage to infective larvae within the average gastropod host."
+#         ) +
+#         theme_minimal() +
+#         theme(plot.caption = element_text(size = 12, face = "italic"))
+#       ggplotly(p)
+#     })
+#     
+#     output$plot_tsi <- renderPlotly({
+#       req(data())
+#       p <- ggplot(data(), aes(x = as.Date(date), y = thermal_suitability_index, color = interaction(ID))) +
+#         geom_line(size = 0.8) +
+#         geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +  # Horizontal line at TSI = 1
+#         labs(
+#           title = " ", 
+#           x = "Date", 
+#           y = "Thermal Suitability Index", 
+#           color = "ID",
+#           caption = "Figure 3. The estimated Thermal Suitability Index (TSI). Dashed line indicates TSI threshold of 1, above which development from the first larval stage to the infective stage within the gastropod host is theoretically complete and transmission is possible. Please note this is based on the requested date range and does not account for potential development completed prior to the range of these data."
+#         ) +
+#         theme_minimal() +
+#         theme(plot.caption = element_text(size = 12, face = "italic"))
+#       ggplotly(p)
+#     })
+#   })
+#   })
+# }
 
 server <- function(input, output, session) {
   weather_data <- weatherInputServer("weatherInput")
-  weatherPlotServer("weatherPlot", weather_data)
-  # Display data table
+  # weatherPlotServer("weatherPlot", weather_data)
+  
+  # hazard map
+  output$map <- renderLeaflet({
+    req(weather_data())
+    coords <- weather_data() %>%
+      group_by(lat, lon, ID) %>%
+      summarise(final_tsi = last(thermal_suitability_index), .groups = 'drop')
+    coords <- coords %>%
+      mutate(color = case_when(
+        final_tsi < 0.5 ~ "blue",
+        final_tsi < 1 ~ "yellow",
+        final_tsi < 2 ~ "orange",
+        TRUE ~ "red"
+      ))
+    
+    pal <- colorFactor(
+      palette = c("blue", "yellow", "orange", "red"),
+      domain = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)")
+    )
+    leaflet() %>%
+      addTiles() %>%
+      addCircleMarkers(
+        lng = coords$lon,
+        lat = coords$lat,
+        popup = paste("ID:", coords$ID, "TSI:", round(coords$final_tsi, 2)),
+        radius = 5,
+        color = coords$color,
+        fill = TRUE
+      ) %>%
+      addLegend(
+        position = "bottomright",
+        pal = pal,
+        values = c("0-0.5 (Low)", "0.5-1 (Moderate)", "1-2 (High)", "2+ (Very High)"),
+        title = "Thermal Suitability Index (TSI)",
+        opacity = 1
+      )
+  })
+  
+  # temp data
+  output$plot_temp <- renderPlotly({
+    req(weather_data())
+    p <- ggplot(weather_data(), aes(x = as.Date(date), y = mean_temp, color = interaction(ID))) +
+      geom_line(size = 0.8) +
+      geom_hline(yintercept = 8, linetype = "dashed", color = "grey") +  # Horizontal line at 8°C
+      geom_hline(yintercept = 21, linetype = "dashed", color = "grey") + # Horizontal line at 21°C
+      labs(
+        title = "", 
+        x = "Date", 
+        y = "Mean Temperature (°C)", 
+        color = "ID",
+        caption = "Figure 1. Mean daily temperature for the requested dates and locations. Dashed lines indicate thresholds lower and upper larval development thresholds of 8°C and 21°C. Each requested location is represented as a separate line."
+      ) +
+      theme_minimal() +
+      theme(plot.caption = element_text(size = 12, face = "italic"))
+    ggplotly(p)
+  })
+  
+  # model - DD
+  output$plot_degree_days <- renderPlotly({
+    req(weather_data())
+    p <- ggplot(weather_data(), aes(x = as.Date(date), y = cumulative_degree_days, color = interaction(ID))) +
+      geom_line(size = 0.8) +
+      geom_hline(yintercept = 245, linetype = "dashed", color = "grey") +  # Horizontal line at 245 degree days
+      labs(
+        title = " ", 
+        x = "Date", 
+        y = "Cumulative Degree Days", 
+        color = "ID",
+        caption = "Figure 2. The estimated degree-days accumulated during the requested date range, based on the daily mean temperature data. Dashed line indicates the cumulative threshold of 245 degree days required to complete development from the first larval stage to infective larvae within the average gastropod host."
+      ) +
+      theme_minimal() +
+      theme(plot.caption = element_text(size = 12, face = "italic"))
+    ggplotly(p)
+  })
+  
+  # model - TSI
+  output$plot_tsi <- renderPlotly({
+    req(weather_data())
+    p <- ggplot(weather_data(), aes(x = as.Date(date), y = thermal_suitability_index, color = interaction(ID))) +
+      geom_line(size = 0.8) +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +  # Horizontal line at TSI = 1
+      labs(
+        title = " ", 
+        x = "Date", 
+        y = "Thermal Suitability Index", 
+        color = "ID",
+        caption = "Figure 3. The estimated Thermal Suitability Index (TSI). Dashed line indicates TSI threshold of 1, above which development from the first larval stage to the infective stage within the gastropod host is theoretically complete and transmission is possible. Please note this is based on the requested date range and does not account for potential development completed prior to the range of these data."
+      ) +
+      theme_minimal() +
+      theme(plot.caption = element_text(size = 12, face = "italic"))
+    ggplotly(p)
+  })
+  
+  # data table
   output$table <- renderDataTable({
     req(weather_data())
     datatable(weather_data())
