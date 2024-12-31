@@ -4,6 +4,7 @@ library(shiny)
 library(leaflet)
 library(DT)
 library(shinythemes)
+library(plotly)
 
 source("helpers.R") # Optional: use this if you move utility functions to a separate helpers.R file
 
